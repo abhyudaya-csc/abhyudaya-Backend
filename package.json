@@ -1,29 +1,31 @@
 {
-  "name": "abhyudaya-backend",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.10.0",
+    "nodemailer": "^6.10.0",
+    "nodemon": "^3.1.9",
+    "twilio": "^5.4.5",
+    "uuid": "^11.0.5"
+  },
+  "name": "abhyudaya",
   "version": "1.0.0",
-  "description": "��#\u0000 \u0000a\u0000b\u0000h\u0000y\u0000u\u0000d\u0000a\u0000y\u0000a\u0000-\u0000B\u0000a\u0000c\u0000k\u0000e\u0000n\u0000d\u0000\r\u0000 \u0000",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
+    "start": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/abhyudaya-csc/abhyudaya-Backend.git"
-  },
-  "keywords": [],
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/abhyudaya-csc/abhyudaya-Backend/issues"
-  },
-  "homepage": "https://github.com/abhyudaya-csc/abhyudaya-Backend#readme",
-  "dependencies": {
-    "cors": "^2.8.6",
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "mongoose": "^9.2.4"
-  },
+  "description": "",
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8"
   }
 }

@@ -1,0 +1,144 @@
+const nodemailer = require("nodemailer");
+const dotenv = require("dotenv");
+const { Admin_model } = require("./Admin_Model");
+const { generateToken } = require("../authentication/UserAuth");
+const ApiResponse = require("../utils/ApiResponse");
+dotenv.config();
+
+
+const generateOTP = () => {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+};
+
+// const otp = generateOTP();
+let otps = {};
+
+const transporter = nodemailer.createTransport({
+  service: "Gmail",
+  host: "smtp.gmail.com",
+
+  auth: {
+    user: process.env.USERMAIL,
+    pass: process.env.USERPASS,
+  },
+});
+
+//..............................Send Email.....................................
+const Send = async (req, res) => {
+  const phoneNumber = req.body.phoneNumber;
+ 
+  const otp = generateOTP();
+  const expirationTime = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+
+  otps[phoneNumber] = { otp, expirationTime };
+
+  console.log(process.env.USERMAIL);
+  const mailOptions = {
+    from: process.env.USERMAIL,
+    to: process.env.USERMAIL,
+    subject: "OTP Verification Email",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; text-align: center;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <a href="#"> <img src="https://i.postimg.cc/2SVKDZtL/Abhyudaya.png" alt="Abhyudaya" style="user-select: none; width: 150px; margin-bottom: 20px;"></a>
+        </div>
+        <h2 style="color: #333; margin-bottom: 20px;">OTP Verification Email</h2>
+        <p style="color: #555; line-height: 1.5; margin-bottom: 20px;">
+          Dear User,
+        </p>
+        <p style="color: #555; line-height: 1.5; margin-bottom: 20px;">
+          Thank you for registering with AlphaLearn. To complete your registration, please use the following OTP (One-Time Password) to verify your account:
+        </p>
+        <p style="color: #333; font-size: 2.0em; font-weight: bold; margin-bottom: 20px;">
+          ${otp}
+        </p>
+        <p style="color: #555; line-height: 1.5; margin-bottom: 20px;">
+          This OTP is valid for 10 minutes. If you did not request this verification, please disregard this email. Once your account is verified, you will have access to our services and its features.
+        </p>
+        <p style="color: #555; line-height: 1.5; margin-bottom: 20px;">
+          If you have any questions or need assistance, please feel free to reach out to us. We are here to help!
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+  
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent: ", info.response);
+    res.status(200).send("OTP sent successfully.");
+  } catch (error) {
+
+    res.status(400).json({ message: "Error : " + error });
+  }
+};
+
+
+
+// const Verify = (req, res) => {
+    
+//     const fullName = req.body.fullName;
+//     const otp = req.body.otp;
+//     const record = otps[fullName];
+  
+//     if (!record) {
+//       return res.status(400).json({ message: "No OTP found for this email." });
+//     }
+  
+//     const { otp: storedOtp, expirationTime } = record;
+  
+//     if (Date.now() > expirationTime) {
+//       delete otps[fullName]; // Clean up expired OTP
+//       return res.status(400).json({ message: "OTP has expired." });
+//     }
+  
+//     if (storedOtp === otp) {
+//       delete otps[fullName]; // Clean up used OTP
+//       return res.status(200).json({ message: "OTP verified successfully." });
+//     } else {
+//       return res.status(400).json({ message: "Invalid OTP." });
+//     }
+//   };
+  
+//   module.exports = { Send, Verify };
+
+
+const Verify = async (req, res) => {
+
+  const { phoneNumber, otp } = req.body;
+
+  const record = otps[phoneNumber];
+
+  if (!record) {
+    return res.status(400).json({ message: "No OTP found." });
+  }
+
+  const { otp: storedOtp, expirationTime } = record;
+  console.log(storedOtp, otp, expirationTime, Date.now())
+  if (Date.now() > expirationTime) {
+    delete otps[phoneNumber];
+    return res.status(400).json({ message: "OTP expired" });
+  }
+
+  if (storedOtp !== otp) {
+    return res.status(400).json({ message: "Invalid OTP" });
+  }
+
+  delete otps[phoneNumber];
+
+  const admin = await Admin_model.findOne({ phoneNumber });
+
+  const token = generateToken(admin);
+
+  res.cookie("user", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+  });
+  console.log(token)
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { admin }, "Login successful"));
+};
+
+module.exports = { Verify,Send };
