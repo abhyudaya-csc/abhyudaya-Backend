@@ -27,8 +27,8 @@ const registerUser = async (req, res) => {
         email,
         phoneNumber,
         password,
-        institution,
-        course,
+        institution
+        
       ].every((field) => (typeof field === "string" ? field.trim() : field))
     ) {
       return res.status(400).json(new ApiError(400, "All fields are required"));
@@ -248,14 +248,45 @@ const updateUser = async (req, res) => {
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
+// for redux state management and cookies
+const getCurrentUser = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
+    res.status(200).json({
+      user: req.user,
+    });
 
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch user",
+    });
+  }
+};
+
+const logoutUser = (req, res) => {
+  res.clearCookie("user", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+    path: "/",
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
+  });
+};
 
 module.exports = {
   registerUser,
   Login,
   getUsers,
   deleteUser,
-  updateUser
+  updateUser,
+  getCurrentUser,
+  logoutUser
   
 };

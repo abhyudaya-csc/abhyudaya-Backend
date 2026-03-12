@@ -64,7 +64,7 @@ const userSchema = new Schema(
     course: {
       type: String,
       enum: courseOptions,
-      required: true,
+      required: false,
     },
     paymentStatus: {
       type: Boolean,
