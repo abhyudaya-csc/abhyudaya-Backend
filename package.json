@@ -9,7 +9,6 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.10.0",
     "nodemailer": "^6.10.0",
-    "nodemon": "^3.1.9",
     "twilio": "^5.4.5",
     "uuid": "^11.0.5"
   },
@@ -18,7 +17,7 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "nodemon index.js",
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -26,6 +25,7 @@
   "description": "",
   "devDependencies": {
     "autoprefixer": "^10.4.27",
+    "nodemon": "^3.1.14",
     "postcss": "^8.5.8"
   }
 }
