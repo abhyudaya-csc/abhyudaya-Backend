@@ -16,8 +16,8 @@ dotenv.config();
 Connection(); // Connect DB
 
 const corsOptions = {
-  // origin: [process.env.APPLICATION_URL, process.env.DEPLOYED_URL, process.env.ADMIN_URL],
-  origin:["http://localhost:5173","http://localhost:5174","http://localhost:5175"],
+  origin: [process.env.APPLICATION_URL, process.env.DEPLOYED_URL, process.env.ADMIN_URL],
+  
   methods: ["GET", "POST", "PUT", "DELETE"], 
   credentials: true,
  
