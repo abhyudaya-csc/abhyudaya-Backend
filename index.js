@@ -34,7 +34,7 @@ app.use(attachUserWithTokenVerification);
 
 // Ping request testing
 app.get("/", (req, res) => {
- return  res.send({error: "The requested URL is not accessible!"});
+ return  res.send({error: `Server started at ${PORT}`});
 });
 
 
