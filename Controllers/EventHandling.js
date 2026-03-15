@@ -16,34 +16,41 @@ const eventRegister = async (req, res) => {
       return res.status(400).json(new ApiError(400, "Invalid event data"));
     }
 
-    // ✅ Extract event IDs from the array
+    // Extract event IDs
     const eventIds = events.map((event) => event.eventId);
 
-    // ✅ Validate if all events exist
+    // Validate if all events exist
     const eventDocs = await Events.find({ eventId: { $in: eventIds } });
 
     if (eventDocs.length !== events.length) {
       return res.status(404).json(new ApiError(404, "Some events not found"));
     }
 
-    // ✅ Use `findOneAndUpdate` to update `eventsPending`
-    const updatedUser = await User.findOneAndUpdate(
-      { ABH_ID: req.user.ABH_ID }, // Find user by ID
-      {
-        $set: { [`eventsPending.${trxnId}`]: events }, // Set new event objects under transaction ID
-      },
-      { new: true, upsert: true } // Return updated user & create if missing
-    );
+    // 🔹 Fetch the user first
+    const user = await User.findOne({ ABH_ID: req.user.ABH_ID });
 
-    if (!updatedUser) {
+    if (!user) {
       return res.status(404).json(new ApiError(404, "User not found"));
     }
+
+    // 🔹 Step 8: Prevent duplicate transaction
+    if (user.eventsPending.has(trxnId) || user.eventsPaid.has(trxnId)) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Transaction already exists"));
+    }
+
+    // 🔹 Add events to pending
+    user.eventsPending.set(trxnId, events);
+
+    await user.save();
 
     return res
       .status(200)
       .json(
-        new ApiResponse(200, { user: updatedUser }, "Events added to pending")
+        new ApiResponse(200, { user }, "Events added to pending successfully")
       );
+
   } catch (error) {
     console.error(error);
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
