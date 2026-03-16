@@ -11,6 +11,7 @@ const eventRegister = async (req, res) => {
   try {
     const { trxnId, events } = req.body;
     console.log(req.body);
+    console.log("event register router hit");
 
     if (!trxnId || !Array.isArray(events) || events.length === 0) {
       return res.status(400).json(new ApiError(400, "Invalid event data"));
