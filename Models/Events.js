@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const eventSchema = new mongoose.Schema(
   {
-    eventName: {
+    name: {
       type: String,
       required: true,
       trim: true,
@@ -24,7 +24,7 @@ const eventSchema = new mongoose.Schema(
     teamType: {
       type: String,
       required: true,
-      enum: ["Solo", "Duo", "Team"],
+      enum: ["Solo","Duet","Team","Solo/Team","All"],
     },
     images: [
       {
