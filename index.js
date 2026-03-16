@@ -16,17 +16,20 @@ dotenv.config();
 Connection(); // Connect DB
 
 const corsOptions = {
-  origin: ["http://localhost:5173",process.env.APPLICATION_URL, process.env.DEPLOYED_URL, process.env.ADMIN_URL],
-  
-  methods: ["GET", "POST", "PUT", "DELETE"], 
-  credentials: true,
- 
+  origin: [
+    "http://localhost:5173",
+    process.env.APPLICATION_URL,
+    process.env.DEPLOYED_URL,
+    process.env.ADMIN_URL
+  ],
+  methods: ["GET","POST","PUT","DELETE"],
+  credentials: true
 };
 
 const app = express();
 
 // Enable CORS globally
-app.use(cors({origin:corsOptions,credentials:true,methods:["GET","POST","PUT","DELETE"]}));
+app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // This will handle preflight requests for all routes
 app.use(cookieParser());
 app.use(express.json());
