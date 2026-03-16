@@ -79,6 +79,8 @@ const requestCampusAmbassador = async (req, res) => {
     const { fullName, email, institution } = req.body;
     const user = await User.findOne({ ABH_ID: req.user.ABH_ID });
 
+    // const user = await User.findOne({ email });
+
     if (!user) {
       return res.status(404).json({
         message: "User not found",

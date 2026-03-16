@@ -114,6 +114,7 @@ const Login = async (req, res) => {
       httpOnly: true,
       secure: true, // Ensures HTTPS in production
       sameSite: "None",
+      path:"/",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
