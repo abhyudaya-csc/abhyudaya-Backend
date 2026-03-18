@@ -54,7 +54,7 @@ const userSchema = new Schema(
     password: {
       type: String,
       required: true,
-      minLength: 8,
+      minLength: 6,
     },
     institution: {
       type: String,
