@@ -91,7 +91,7 @@ const userSchema = new Schema(
       validate: {
         validator: function (value) {
           if (value && value.length > 0) {
-            return this.isCampusAmbassador;
+            return this.isCampusAmbassador === true;
           }
           return true;
         },

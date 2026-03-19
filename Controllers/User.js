@@ -20,6 +20,7 @@ const registerUser = async (req, res) => {
       gender,
       referallId,
     } = req.body;
+    console.log("Register hit");
 
     if (
       ![
@@ -74,7 +75,7 @@ const registerUser = async (req, res) => {
       .status(201)
       .json(new ApiResponse(201, user, "User registered successfully"));
   } catch (error) {
-    console.log(error);
+    console.error("Register user error:",error);
     return res
       .status(500)
       .json(new ApiError(500, "Something went wrong while registering"));
@@ -97,7 +98,8 @@ const Login = async (req, res) => {
         : { ABH_ID },
     );
 
-    console.log(user);
+    // console.log(user);
+    console.log("Login hit");
 
     if (!user) {
       return res.status(404).json(new ApiError(404, "User not found"));
@@ -120,8 +122,7 @@ const Login = async (req, res) => {
 
     return res.status(200).json(new ApiResponse(200, user, "Login successful"));
   } catch (error) {
-    console.log(error);
-
+    console.error("Login error",error);
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
@@ -171,7 +172,7 @@ const getUsers = async (req, res) => {
       users,
     });
   } catch (error) {
-    console.error(error);
+    console.error("get User error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -201,7 +202,7 @@ const deleteUser = async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, {}, "User deleted successfully"));
   } catch (error) {
-    console.log(error);
+    console.error("User error:",error);
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
@@ -246,6 +247,7 @@ const updateUser = async (req, res) => {
         new ApiResponse(200, user, "User information updated successfully"),
       );
   } catch (error) {
+    console.error("User error", error)
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
@@ -261,6 +263,7 @@ const getCurrentUser = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("User error: ",error)
     res.status(500).json({
       message: "Failed to fetch user",
     });
