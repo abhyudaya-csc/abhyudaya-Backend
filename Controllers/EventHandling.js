@@ -57,22 +57,17 @@ const eventRegister = async (req, res) => {
     }
 
     // 🔹 Add events to pending
-    user.eventsPending.set(trxnId, normalizedEvents);
+    user.eventsPending.set(trxnId, events);
 
     await user.save();
 
     return res
       .status(200)
       .json(
-        new ApiResponse(
-          200,
-          { user, missingEventIds },
-          "Events added to pending successfully"
-        )
+        new ApiResponse(200, { user }, "Events added to pending successfully")
       );
-
   } catch (error) {
-    console.error(error);
+    console.error("Event register error!!!",error);
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
@@ -82,7 +77,9 @@ const movePendingToPaid = async (req, res) => {
     const { trxnId, ABH_ID } = req.body;
 
     if (!trxnId) {
-      return res.status(400).json(new ApiError(400, "Transaction ID is required"));
+      return res
+        .status(400)
+        .json(new ApiError(400, "Transaction ID is required"));
     }
 
     // ✅ Fetch the user's pending events for the given transaction ID
@@ -93,25 +90,34 @@ const movePendingToPaid = async (req, res) => {
     }
 
     // ✅ Retrieve the events from Map using `.get()`
-    const eventsToMove = user.eventsPending.get(trxnId); 
-
-  
+    const eventsToMove = user.eventsPending.get(trxnId);
 
     if (!eventsToMove || eventsToMove.length === 0) {
-      return res.status(404).json(new ApiError(404, "No events found for this transaction"));
+      return res
+        .status(404)
+        .json(new ApiError(404, "No events found for this transaction"));
     }
 
-    // ✅ Move events from `eventsPending` to `eventsPaid`
-    user.eventsPending.delete(trxnId); // Remove from pending
-    user.eventsPaid.set(trxnId, eventsToMove); // Move to paid
+    // // ✅ Move events from `eventsPending` to `eventsPaid`
+    // user.eventsPending.delete(trxnId); // Remove from pending
+    // user.eventsPaid.set(trxnId, eventsToMove); // Move to paid
+    // await user.save(); // Save changes
 
-    await user.save(); // Save changes
+    await User.updateOne(
+  { ABH_ID },
+  {
+    $unset: { [`eventsPending.${trxnId}`]: "" },
+    $set: { [`eventsPaid.${trxnId}`]: eventsToMove },
+  }
+);
 
-    return res.status(200).json(
-      new ApiResponse(200, { user }, "Events moved to paid successfully")
-    );
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, { user }, "Events moved to paid successfully"),
+      );
   } catch (error) {
-    console.error(error);
+    console.error("event Payment error!!!", error);
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
@@ -121,30 +127,40 @@ const removePendingTransaction = async (req, res) => {
     const { trxnId, ABH_ID } = req.body;
 
     if (!trxnId) {
-      return res.status(400).json(new ApiError(400, "Transaction ID is required"));
+      return res
+        .status(400)
+        .json(new ApiError(400, "Transaction ID is required"));
     }
 
     // ✅ Use `findOneAndUpdate` to remove transaction from `eventsPending`
     const user = await User.findOneAndUpdate(
       { ABH_ID, [`eventsPending.${trxnId}`]: { $exists: true } }, // Ensure the transaction exists
       { $unset: { [`eventsPending.${trxnId}`]: "" } }, // Remove the transaction
-      { new: true } // Return the updated user document
+      { new: true }, // Return the updated user document
     );
 
     if (!user) {
-      return res.status(404).json(new ApiError(404, "User or transaction not found in pending state"));
+      return res
+        .status(404)
+        .json(
+          new ApiError(404, "User or transaction not found in pending state"),
+        );
     }
 
-    return res.status(200).json(
-      new ApiResponse(200, { user }, "Transaction removed from pending successfully")
-    );
-
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { user },
+          "Transaction removed from pending successfully",
+        ),
+      );
   } catch (error) {
     console.error(error);
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
-
 
 const getAllUserTransactions = async (req, res) => {
   try {
@@ -184,16 +200,20 @@ const getAllUserTransactions = async (req, res) => {
       });
     });
 
-    return res.status(200).json(
-      new ApiResponse(200, { transactions }, "Transactions fetched successfully")
-    );
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { transactions },
+          "Transactions fetched successfully",
+        ),
+      );
   } catch (error) {
     console.error(error);
     return res.status(500).json(new ApiError(500, "Something went wrong!"));
   }
 };
-
-
 
 const FetchEventsForUsers = async (req, res) => {
   try {
@@ -215,7 +235,8 @@ const FetchEventsForUsers = async (req, res) => {
       statuscode: 200,
       status: true,
       message: "Events fetched successfully",
-      eventsPending, eventsPaid ,
+      eventsPending,
+      eventsPaid,
     });
   } catch (error) {
     console.error("Error fetching events:", error);
@@ -229,7 +250,10 @@ const FetchEventsForUsers = async (req, res) => {
 
 const FetchAllUsersEvents = async (req, res) => {
   try {
-    const users = await User.find({}, "ABH_ID fullName email phoneNumber eventsPending eventsPaid").lean();
+    const users = await User.find(
+      {},
+      "ABH_ID fullName email phoneNumber eventsPending eventsPaid",
+    ).lean();
 
     if (!users || users.length === 0) {
       return res.status(404).json({
@@ -255,12 +279,11 @@ const FetchAllUsersEvents = async (req, res) => {
   }
 };
 
-
 module.exports = {
   eventRegister,
   FetchEventsForUsers,
   FetchAllUsersEvents,
   movePendingToPaid,
   removePendingTransaction,
-  getAllUserTransactions
+  getAllUserTransactions,
 };

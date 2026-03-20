@@ -54,7 +54,7 @@ const userSchema = new Schema(
     password: {
       type: String,
       required: true,
-      minLength: 8,
+      minLength: 6,
     },
     institution: {
       type: String,
@@ -91,7 +91,7 @@ const userSchema = new Schema(
       validate: {
         validator: function (value) {
           if (value && value.length > 0) {
-            return this.isCampusAmbassador;
+            return this.isCampusAmbassador === true;
           }
           return true;
         },

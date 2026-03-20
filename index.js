@@ -5,13 +5,13 @@ const VerificationRouter = require("./Routers/Verification");
 const { Connection } = require("./Connection");
 const { attachUserWithTokenVerification } = require("./authentication/UserAuth");
 const PORT = process.env.PORT || 8000;
-const dotenv = require("dotenv"); 
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const {checkAdmin} = require('./authentication/Middleware');
 const adminRouter = require("./Routers/Admin");
-
+const dotenv = require("dotenv"); 
 dotenv.config();
+
 
 Connection(); // Connect DB
 

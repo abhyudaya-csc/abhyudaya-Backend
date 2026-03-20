@@ -76,9 +76,10 @@ const rejectCampusAmbassador = async (req, res) => {
 };
 const requestCampusAmbassador = async (req, res) => {
   try {
-    const { fullName, email, institution } = req.body;
+    const { fullName, email, institution, ABH_ID } = req.body;
+    const user = await User.findOne({ ABH_ID: req.user.ABH_ID });
 
-    const user = await User.findOne({ email });
+    // const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(404).json({
