@@ -114,8 +114,8 @@ const Login = async (req, res) => {
 
     res.cookie("user", token, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "None" : "Lax",
+      secure: isProd,                 // true on Render/HTTPS
+      sameSite: isProd ? "none" : "lax", // none required for cross-site
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
