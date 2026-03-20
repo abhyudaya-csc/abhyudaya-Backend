@@ -8,6 +8,32 @@ const bcrypt = require("bcryptjs");
 const { generateToken } = require("../authentication/UserAuth.js");
 const jwt = require("jsonwebtoken");
 
+const toFrontendUser = (userDoc) => {
+  const user = userDoc?.toObject ? userDoc.toObject() : userDoc;
+  if (!user) return null;
+
+  return {
+    fullName: user.fullName,
+    email: user.email,
+    phoneNumber: user.phoneNumber,
+    institution: user.institution,
+    ABH_ID: user.ABH_ID,
+    paymentStatus: user.paymentStatus,
+  };
+};
+
+const getAuthCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
+  };
+};
+
 // [ABH_ID, fullName, email, phoneNumber, dob, password, institution]
 const registerUser = async (req, res) => {
   try {
@@ -88,9 +114,10 @@ const registerUser = async (req, res) => {
       );
     }
 
-    return res
-      .status(201)
-      .json(new ApiResponse(201, user, "User registered successfully"));
+    return res.status(201).json({
+      user: toFrontendUser(user),
+      message: "User registered successfully",
+    });
   } catch (error) {
     console.log(error);
     return res
@@ -128,16 +155,12 @@ const Login = async (req, res) => {
 
     const token = generateToken(user);
 
-    const isProd = process.env.NODE_ENV === "production";
+    res.cookie("user", token, getAuthCookieOptions());
 
-    res.cookie("user", token, {
-      httpOnly: true,
-      secure: isProd,                 // true on Render/HTTPS
-      sameSite: isProd ? "none" : "lax", // none required for cross-site
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    return res.status(200).json({
+      user: toFrontendUser(user),
+      message: "Login successful",
     });
-
-    return res.status(200).json(new ApiResponse(200, user, "Login successful"));
   } catch (error) {
     console.log(error);
 
@@ -275,8 +298,16 @@ const getCurrentUser = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const user = await User.findOne({
+      $or: [{ email: req.user.email }, { ABH_ID: req.user.ABH_ID }],
+    }).select("fullName email phoneNumber institution ABH_ID paymentStatus");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     res.status(200).json({
-      user: req.user,
+      user: toFrontendUser(user),
     });
 
   } catch (error) {
@@ -286,12 +317,80 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+const updateCurrentUser = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const allowedFields = ["fullName", "phoneNumber", "institution"];
+    const incomingFields = Object.keys(req.body || {});
+
+    if (incomingFields.length === 0) {
+      return res.status(400).json({ message: "No fields provided for update" });
+    }
+
+    const disallowed = incomingFields.filter((field) => !allowedFields.includes(field));
+    if (disallowed.length > 0) {
+      return res.status(400).json({ message: "Only fullName, phoneNumber and institution can be updated" });
+    }
+
+    const updateData = {};
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "fullName")) {
+      const fullName = String(req.body.fullName || "").trim();
+      if (!fullName) {
+        return res.status(400).json({ message: "fullName is required" });
+      }
+      updateData.fullName = fullName;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "institution")) {
+      const institution = String(req.body.institution || "").trim();
+      if (!institution) {
+        return res.status(400).json({ message: "institution is required" });
+      }
+      updateData.institution = institution;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "phoneNumber")) {
+      const phoneString = String(req.body.phoneNumber || "").trim();
+      if (!/^\d{10}$/.test(phoneString)) {
+        return res.status(400).json({ message: "phoneNumber must be 10 digits" });
+      }
+      updateData.phoneNumber = Number(phoneString);
+    }
+
+    const user = await User.findOneAndUpdate(
+      { $or: [{ email: req.user.email }, { ABH_ID: req.user.ABH_ID }] },
+      { $set: updateData },
+      {
+        new: true,
+        runValidators: true,
+      },
+    ).select("fullName email phoneNumber institution ABH_ID paymentStatus");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user: toFrontendUser(user) });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "Phone number already in use" });
+    }
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
 const logoutUser = (req, res) => {
+  const cookieOptions = getAuthCookieOptions();
+
   res.clearCookie("user", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-    path: "/",
+    httpOnly: cookieOptions.httpOnly,
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+    path: cookieOptions.path,
   });
 
   res.status(200).json({
@@ -306,6 +405,7 @@ module.exports = {
   getUsers,
   deleteUser,
   updateUser,
+  updateCurrentUser,
   getCurrentUser,
   logoutUser
   
