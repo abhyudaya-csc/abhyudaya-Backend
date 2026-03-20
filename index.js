@@ -13,8 +13,19 @@ const adminRouter = require("./Routers/Admin");
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://abhyudaya-git-vmt-test-branch-abhyudaya-cscs-projects.vercel.app",
+  "https://abhyudaya.vercel.app", // optional production domain
+].filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Not allowed by CORS"));
+  },
   credentials: true,
 };
 
