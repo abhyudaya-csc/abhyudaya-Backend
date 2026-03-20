@@ -15,21 +15,20 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "https://abhyudaya.vercel.app",
   "https://abhyudaya-git-vmt-test-branch-abhyudaya-cscs-projects.vercel.app",
-  "https://abhyudaya.vercel.app", // optional production domain
-].filter(Boolean);
+];
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
 };
 
-// Enable CORS globally
+app.set("trust proxy", 1);
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(cookieParser());
