@@ -3,15 +3,22 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+const getJwtSecret = () =>
+  process.env.USERNAME_SECRET ||
+  process.env.JWT_SECRET ||
+  process.env.jwt_secret;
+
 // Middleware for attaching user from token
 const attachUserWithTokenVerification = async (req, res, next) => {
   try {
     const token = req.cookies?.user;
-    console.log(req.cookies);
+    const jwtSecret = getJwtSecret();
     
     if (!token) return next(); // No token, proceed without modification
-    
-    const decoded = jwt.verify(token, process.env.USERNAME_SECRET);
+
+    if (!jwtSecret) return next();
+
+    const decoded = jwt.verify(token, jwtSecret);
 
     if (decoded) {
       req.user = decoded;
@@ -32,6 +39,14 @@ const attachUserWithTokenVerification = async (req, res, next) => {
 };
 
 const generateToken = (user) => {
+  const jwtSecret = getJwtSecret();
+
+  if (!jwtSecret) {
+    throw new Error(
+      "JWT secret is missing. Set USERNAME_SECRET or JWT_SECRET or jwt_secret in environment variables."
+    );
+  }
+
   const payload = {
     fullName: user.fullName,
     ABH_ID: user.ABH_ID || null,
@@ -40,7 +55,7 @@ const generateToken = (user) => {
     profilePicture: user.profilePicture || null
   };
 
-  return jwt.sign(payload, process.env.USERNAME_SECRET, {
+  return jwt.sign(payload, jwtSecret, {
     expiresIn: "7d", // Token valid for 7 days
   });
 };

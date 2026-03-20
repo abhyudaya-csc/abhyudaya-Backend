@@ -17,14 +17,29 @@ const eventRegister = async (req, res) => {
       return res.status(400).json(new ApiError(400, "Invalid event data"));
     }
 
+    const normalizedEvents = events
+      .map((event) => ({
+        eventId: event?.eventId,
+        name: event?.name || event?.eventName,
+        price: Number(event?.price ?? event?.participationFee ?? 0),
+      }))
+      .filter((event) => event.eventId && event.name);
+
+    if (normalizedEvents.length !== events.length) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Each event must include eventId and name"));
+    }
+
     // Extract event IDs
-    const eventIds = events.map((event) => event.eventId);
+    const eventIds = normalizedEvents.map((event) => event.eventId);
 
-    // Validate if all events exist
-    const eventDocs = await Events.find({ eventId: { $in: eventIds } });
-
-    if (eventDocs.length !== events.length) {
-      return res.status(404).json(new ApiError(404, "Some events not found"));
+    // Validate against DB if available, but do not block registration when catalog is not seeded.
+    const eventDocs = await Events.find({ eventId: { $in: eventIds } }).select("eventId");
+    const existingEventIds = new Set(eventDocs.map((doc) => doc.eventId));
+    const missingEventIds = eventIds.filter((id) => !existingEventIds.has(id));
+    if (missingEventIds.length > 0) {
+      console.warn("eventRegister: Unseeded/missing event IDs", missingEventIds);
     }
 
     // 🔹 Fetch the user first
@@ -42,14 +57,18 @@ const eventRegister = async (req, res) => {
     }
 
     // 🔹 Add events to pending
-    user.eventsPending.set(trxnId, events);
+    user.eventsPending.set(trxnId, normalizedEvents);
 
     await user.save();
 
     return res
       .status(200)
       .json(
-        new ApiResponse(200, { user }, "Events added to pending successfully")
+        new ApiResponse(
+          200,
+          { user, missingEventIds },
+          "Events added to pending successfully"
+        )
       );
 
   } catch (error) {

@@ -5,9 +5,8 @@ const { v4: uuidv4 } = require("uuid");
 // Get all events
 const getAllEvents = async (req, res) => {
   try {
-  
     const startIndex = parseInt(req.query.startIndex) || 0;
-   
+
     const order = req.query.order;
     const sortDirection = order === "asc" ? 1 : -1;
 
@@ -35,8 +34,7 @@ const getAllEvents = async (req, res) => {
 
     const events = await Events.find(query)
       .sort({ createdAt: sortDirection })
-      .skip(startIndex)
-   
+      .skip(startIndex);
 
     res.status(200).json({
       status: true,
@@ -52,7 +50,6 @@ const getAllEvents = async (req, res) => {
     });
   }
 };
-
 
 // Get event by ID
 const getEventById = async (req, res) => {
@@ -115,7 +112,7 @@ const updateEvent = async (req, res) => {
     const updatedEvent = await Events.findOneAndUpdate(
       { eventId: req.params.id },
       req.body,
-      { new: true }
+      { new: true },
     );
     if (!updatedEvent) {
       return res.status(404).json({ message: "Event not found" });
@@ -130,7 +127,9 @@ const updateEvent = async (req, res) => {
 // Delete event
 const deleteEvent = async (req, res) => {
   try {
-    const deletedEvent = await Events.findOneAndDelete({eventId: req.params.id});
+    const deletedEvent = await Events.findOneAndDelete({
+      eventId: req.params.id,
+    });
     if (!deletedEvent) {
       return res.status(404).json({ message: "Event not found" });
     }
