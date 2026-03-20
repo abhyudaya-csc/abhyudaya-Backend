@@ -6,13 +6,31 @@ const { Events } = require("../Models/Events.js");
 const { generateUser } = require("./username.js");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../authentication/UserAuth.js");
+const jwt = require("jsonwebtoken");
 
 // [ABH_ID, fullName, email, phoneNumber, dob, password, institution]
 const registerUser = async (req, res) => {
   try {
+    const { email, signupToken } = req.body;
+
+    if (!signupToken) {
+      return res.status(400).json({ message: "OTP verification required" });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(signupToken, process.env.SIGNUP_OTP_SECRET);
+    } catch (e) {
+      return res.status(401).json({ message: "Invalid or expired signup verification token" });
+    }
+
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (decoded.purpose !== "signup_verify" || decoded.email !== normalizedEmail) {
+      return res.status(401).json({ message: "OTP verification mismatch" });
+    }
+
     const {
       fullName,
-      email,
       phoneNumber,
       password,
       institution,
@@ -54,7 +72,7 @@ const registerUser = async (req, res) => {
     const user = await User.create({
       ABH_ID: await generateUser(fullName, phoneNumber),
       fullName,
-      email,
+      email: normalizedEmail,
       phoneNumber,
 
       password: hashedPassword,
@@ -114,8 +132,8 @@ const Login = async (req, res) => {
 
     res.cookie("user", token, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "None" : "Lax",
+      secure: isProd,                 // true on Render/HTTPS
+      sameSite: isProd ? "none" : "lax", // none required for cross-site
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
