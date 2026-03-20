@@ -1,3 +1,4 @@
+const dns = require("dns");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -8,15 +9,19 @@ const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
 const OTP_RESEND_COOLDOWN_SECONDS = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
 
+const ipv4Lookup = (hostname, options, callback) => {
+  return dns.lookup(hostname, { family: 4, all: false }, callback);
+};
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: Number(process.env.SMTP_PORT || 465),
   secure: String(process.env.SMTP_SECURE).toLowerCase() === "true",
   auth: {
     user: process.env.SMTP_USER,
     pass: String(process.env.SMTP_PASS || "").replace(/\s+/g, ""),
   },
-  family: 4,
+  lookup: ipv4Lookup, // force IPv4 DNS resolution
   connectionTimeout: 20000,
   greetingTimeout: 20000,
   socketTimeout: 20000,
