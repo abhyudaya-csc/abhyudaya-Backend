@@ -1,11 +1,9 @@
 const { Router } = require("express");
-const { Send, Verify, sendContactEmail } = require("../authentication/Email");
+const { sendSignupOtp, verifySignupOtp } = require("../Controllers/Verification");
 
 const VerificationRouter = Router();
 
-
-VerificationRouter.post("/email", Send);
-VerificationRouter.post("/verify", Verify);
-VerificationRouter.post("/contact", sendContactEmail);
+VerificationRouter.post("/send-signup-otp", sendSignupOtp);
+VerificationRouter.post("/confirm-signup-otp", verifySignupOtp);
 
 module.exports = VerificationRouter;
