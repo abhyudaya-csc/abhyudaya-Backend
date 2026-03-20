@@ -1,54 +1,52 @@
+const dotenv = require("dotenv");
+dotenv.config();
+
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const Connection = require("./Connection");
 const express = require("express");
+const { attachUserWithTokenVerification } = require("./authentication/UserAuth");
 const eventRouter = require("./Routers/Events");
 const userRouter = require("./Routers/User");
 const VerificationRouter = require("./Routers/Verification");
-const { Connection } = require("./Connection");
-const { attachUserWithTokenVerification } = require("./authentication/UserAuth");
-const PORT = process.env.PORT || 8000;
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
-const {checkAdmin} = require('./authentication/Middleware');
 const adminRouter = require("./Routers/Admin");
-const dotenv = require("dotenv"); 
-dotenv.config();
-
-
-Connection(); // Connect DB
-
-const corsOptions = {
-  origin: [
-    "http://localhost:5173",
-    process.env.APPLICATION_URL,
-    process.env.DEPLOYED_URL,
-    process.env.ADMIN_URL
-  ],
-  methods: ["GET","POST","PUT","DELETE"],
-  credentials: true
-};
 
 const app = express();
 
+const corsOptions = {
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  credentials: true,
+};
+
 // Enable CORS globally
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // This will handle preflight requests for all routes
+app.options("*", cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(attachUserWithTokenVerification);
 
 // Ping request testing
 app.get("/", (req, res) => {
- return  res.send({error: `Server started at ${PORT}`});
+  return res.send({ error: `Server started at ${process.env.PORT}` });
 });
-
 
 // All Routers
 app.use("/events", eventRouter);
 app.use("/users", userRouter);
-app.use("/verify",VerificationRouter);
-app.use("/admin",  adminRouter);
+app.use("/verify", VerificationRouter);
+app.use("/admin", adminRouter);
 
+const startServer = async () => {
+  try {
+    await Connection();
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`✅ Server Running at Port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+};
 
-
-app.listen(PORT, () => {
-  console.log("Server Running at Port " + PORT);
-});
+startServer();

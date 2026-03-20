@@ -111,6 +111,10 @@ const userSchema = new Schema(
       of: [{ type: Object }],
       default: new Map(),
     },
+
+    isEmailVerified: { type: Boolean, default: false },
+    otpHash: { type: String, default: null },
+    otpExpiresAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

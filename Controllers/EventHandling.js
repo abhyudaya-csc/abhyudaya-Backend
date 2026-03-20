@@ -10,11 +10,13 @@ const { generateToken } = require("../authentication/UserAuth.js");
 const eventRegister = async (req, res) => {
   try {
     const { trxnId, events } = req.body;
-    console.log(req.body);
-    console.log("event register router hit");
+
+    if (!req.user?.ABH_ID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     if (!trxnId || !Array.isArray(events) || events.length === 0) {
-      return res.status(400).json(new ApiError(400, "Invalid event data"));
+      return res.status(400).json({ message: "Invalid payload" });
     }
 
     const normalizedEvents = events
@@ -32,21 +34,19 @@ const eventRegister = async (req, res) => {
     }
 
     // Extract event IDs
-    const eventIds = normalizedEvents.map((event) => event.eventId);
+    const eventIds = events.map((event) => event.eventId);
 
-    // Validate against DB if available, but do not block registration when catalog is not seeded.
-    const eventDocs = await Events.find({ eventId: { $in: eventIds } }).select("eventId");
-    const existingEventIds = new Set(eventDocs.map((doc) => doc.eventId));
-    const missingEventIds = eventIds.filter((id) => !existingEventIds.has(id));
-    if (missingEventIds.length > 0) {
-      console.warn("eventRegister: Unseeded/missing event IDs", missingEventIds);
+    // Validate if all events exist
+    const eventDocs = await Events.find({ eventId: { $in: eventIds } });
+
+    if (eventDocs.length !== events.length) {
+      return res.status(404).json(new ApiError(404, "Some events not found"));
     }
 
     // 🔹 Fetch the user first
     const user = await User.findOne({ ABH_ID: req.user.ABH_ID });
-
     if (!user) {
-      return res.status(404).json(new ApiError(404, "User not found"));
+      return res.status(404).json({ message: "User not found" });
     }
 
     // 🔹 Step 8: Prevent duplicate transaction
@@ -57,18 +57,25 @@ const eventRegister = async (req, res) => {
     }
 
     // 🔹 Add events to pending
-    user.eventsPending.set(trxnId, events);
-
-    await user.save();
+    // user.eventsPending.set(trxnId, events);
+    // await user.save();
+    await User.updateOne(
+      { ABH_ID: req.user.ABH_ID },
+      {
+        $set: {
+          [`eventsPending.${trxnId}`]: events,
+        },
+      },
+    );
 
     return res
       .status(200)
       .json(
-        new ApiResponse(200, { user }, "Events added to pending successfully")
+        new ApiResponse(200, { user }, "Events added to pending successfully"),
       );
   } catch (error) {
-    console.error("Event register error!!!",error);
-    return res.status(500).json(new ApiError(500, "Something went wrong!"));
+    console.error("eventRegister error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -104,12 +111,12 @@ const movePendingToPaid = async (req, res) => {
     // await user.save(); // Save changes
 
     await User.updateOne(
-  { ABH_ID },
-  {
-    $unset: { [`eventsPending.${trxnId}`]: "" },
-    $set: { [`eventsPaid.${trxnId}`]: eventsToMove },
-  }
-);
+      { ABH_ID },
+      {
+        $unset: { [`eventsPending.${trxnId}`]: "" },
+        $set: { [`eventsPaid.${trxnId}`]: eventsToMove },
+      }
+    );
 
     return res
       .status(200)
@@ -164,54 +171,33 @@ const removePendingTransaction = async (req, res) => {
 
 const getAllUserTransactions = async (req, res) => {
   try {
-    const users = await User.find({});
-
-    if (!users || users.length === 0) {
-      return res.status(404).json(new ApiError(404, "No transactions found"));
+    if (!req.user?.ABH_ID) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
-    let transactions = [];
+    const user = await User.findOne({ ABH_ID: req.user.ABH_ID }).lean();
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    users.forEach((user) => {
-      // Extract pending transactions
-      user.eventsPending.forEach((events, trxnId) => {
-        transactions.push({
-          trxnId,
-          ABH_ID: user.ABH_ID,
-          fullName: user.fullName,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          status: "Pending",
-          events,
-        });
-      });
+    // IMPORTANT: Map -> plain object for frontend
+    const eventsPending =
+      user.eventsPending instanceof Map
+        ? Object.fromEntries(user.eventsPending)
+        : (user.eventsPending || {});
 
-      // Extract paid transactions
-      user.eventsPaid.forEach((events, trxnId) => {
-        transactions.push({
-          trxnId,
-          ABH_ID: user.ABH_ID,
-          fullName: user.fullName,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          status: "Paid",
-          events,
-        });
-      });
+    const eventsPaid =
+      user.eventsPaid instanceof Map
+        ? Object.fromEntries(user.eventsPaid)
+        : (user.eventsPaid || {});
+
+    return res.status(200).json({
+      message: "Fetched user transactions",
+      data: { eventsPending, eventsPaid },
     });
-
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          { transactions },
-          "Transactions fetched successfully",
-        ),
-      );
   } catch (error) {
-    console.error(error);
-    return res.status(500).json(new ApiError(500, "Something went wrong!"));
+    console.error("getAllUserTransactions error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
