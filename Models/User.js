@@ -115,6 +115,8 @@ const userSchema = new Schema(
     isEmailVerified: { type: Boolean, default: false },
     otpHash: { type: String, default: null },
     otpExpiresAt: { type: Date, default: null },
+    resetPasswordTokenHash: { type: String, default: null },
+    resetPasswordExpiresAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
