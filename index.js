@@ -19,6 +19,7 @@ const staticAllowedOrigins = [
   "http://localhost:5173",
   "https://abhyudaya.vercel.app",
   "https://abhyudaya-git-vmt-test-branch-abhyudaya-cscs-projects.vercel.app",
+  "https://abhyudaya-git-abhishek-abhyudaya-cscs-projects.vercel.app/",
   "https://www.abhyudaya.site",
 ];
 
