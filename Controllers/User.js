@@ -128,14 +128,11 @@ const Login = async (req, res) => {
 
     const token = generateToken(user);
 
-    const isProd = process.env.NODE_ENV === "production";
+    const cookieOptions = getAuthCookieOptions();
 
-    res.cookie("user", token, {
-      httpOnly: true,
-      secure: isProd,                 // true on Render/HTTPS
-      sameSite: isProd ? "none" : "lax", // none required for cross-site
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    // Set both keys for compatibility with frontend/client variants.
+    res.cookie("user", token, cookieOptions);
+    res.cookie("token", token, cookieOptions);
 
     return res.status(200).json(new ApiResponse(200, user, "Login successful"));
   } catch (error) {

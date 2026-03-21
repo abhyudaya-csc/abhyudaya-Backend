@@ -22,10 +22,27 @@ const allowedOrigins = [
   "https://www.abhyudaya.site",
 ];
 
+const envAllowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+  process.env.APPLICATION_URL,
+  ...(process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim())
+    : []),
+].filter(Boolean);
+
+const allowedOrigins = [...new Set([...staticAllowedOrigins, ...envAllowedOrigins])];
+
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    // Allow Vercel preview domains when needed for branch deployments.
+    if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) {
+      return callback(null, true);
+    }
+
     return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
