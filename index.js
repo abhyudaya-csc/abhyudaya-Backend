@@ -15,7 +15,7 @@ dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 
-const allowedOrigins = [
+const staticAllowedOrigins = [
   "http://localhost:5173",
   "https://abhyudaya.vercel.app",
   "https://abhyudaya-git-vmt-test-branch-abhyudaya-cscs-projects.vercel.app",
