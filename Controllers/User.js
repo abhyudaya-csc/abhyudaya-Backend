@@ -184,6 +184,7 @@ const Login = async (req, res) => {
 
     return res.status(200).json({
       user: toFrontendUser(user),
+      token,
       message: "Login successful",
     });
   } catch (error) {
