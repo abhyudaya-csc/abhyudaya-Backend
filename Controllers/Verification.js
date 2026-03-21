@@ -1,9 +1,12 @@
 const dns = require("dns");
 const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const VerificationOtp = require("../Models/VerificationOtp");
 const { User } = require("../Models/User");
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
 const OTP_RESEND_COOLDOWN_SECONDS = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
@@ -58,8 +61,8 @@ const sendSignupOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    await resend.emails.send({
+      from: process.env.RESEND_FROM || "noreply@abhyudaya.site",
       to: email,
       subject: "Abhyudaya Signup OTP",
       html: `<p>Your OTP is <b>${otp}</b>. It is valid for ${OTP_TTL_MINUTES} minutes.</p>`,
