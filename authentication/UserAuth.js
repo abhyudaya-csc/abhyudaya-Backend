@@ -8,10 +8,23 @@ const getJwtSecret = () =>
   process.env.JWT_SECRET ||
   process.env.jwt_secret;
 
+const getRequestToken = (req) => {
+  const cookieToken = req.cookies?.user || req.cookies?.token;
+  if (cookieToken) return cookieToken;
+
+  const authHeader = req.headers?.authorization || "";
+  const isBearer = authHeader.toLowerCase().startsWith("bearer ");
+  if (isBearer) {
+    return authHeader.slice(7).trim();
+  }
+
+  return null;
+};
+
 // Middleware for attaching user from token
 const attachUserWithTokenVerification = async (req, res, next) => {
   try {
-    const token = req.cookies?.user;
+    const token = getRequestToken(req);
     const jwtSecret = getJwtSecret();
     
     if (!token) return next(); // No token, proceed without modification
@@ -25,14 +38,6 @@ const attachUserWithTokenVerification = async (req, res, next) => {
     }
   } catch (error) {
     req.user = null;
-
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({
-        statuscode: 401,
-        message: "Session expired. Please log in again.",
-        status: false,
-      });
-    }
   }
 
   next();

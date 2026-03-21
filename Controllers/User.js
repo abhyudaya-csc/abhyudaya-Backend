@@ -8,32 +8,6 @@ const bcrypt = require("bcryptjs");
 const { generateToken } = require("../authentication/UserAuth.js");
 const jwt = require("jsonwebtoken");
 
-const toFrontendUser = (userDoc) => {
-  const user = userDoc?.toObject ? userDoc.toObject() : userDoc;
-  if (!user) return null;
-
-  return {
-    fullName: user.fullName,
-    email: user.email,
-    phoneNumber: user.phoneNumber,
-    institution: user.institution,
-    ABH_ID: user.ABH_ID,
-    paymentStatus: user.paymentStatus,
-  };
-};
-
-const getAuthCookieOptions = () => {
-  const isProd = process.env.NODE_ENV === "production";
-
-  return {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/",
-  };
-};
-
 // [ABH_ID, fullName, email, phoneNumber, dob, password, institution]
 const registerUser = async (req, res) => {
   try {
@@ -155,7 +129,14 @@ const Login = async (req, res) => {
 
     const token = generateToken(user);
 
-    res.cookie("user", token, getAuthCookieOptions());
+    const isProd = process.env.NODE_ENV === "production";
+
+    res.cookie("user", token, {
+      httpOnly: true,
+      secure: isProd,                 // true on Render/HTTPS
+      sameSite: isProd ? "none" : "lax", // none required for cross-site
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     return res.status(200).json({
       user: toFrontendUser(user),
@@ -387,10 +368,10 @@ const logoutUser = (req, res) => {
   const cookieOptions = getAuthCookieOptions();
 
   res.clearCookie("user", {
-    httpOnly: cookieOptions.httpOnly,
-    secure: cookieOptions.secure,
-    sameSite: cookieOptions.sameSite,
-    path: cookieOptions.path,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+    path: "/",
   });
 
   res.status(200).json({
