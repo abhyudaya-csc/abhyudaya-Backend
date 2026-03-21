@@ -3,6 +3,7 @@ const ApiResponse = require("../utils/ApiResponse"); // Adjust the path if neede
 
 const { User } = require("../Models/User.js");
 const { Events } = require("../Models/Events.js");
+const { Admin_model } = require("../Admin/Admin_Model");
 const { generateUser } = require("./username.js");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../authentication/UserAuth.js");
@@ -171,29 +172,73 @@ const removePendingTransaction = async (req, res) => {
 
 const getAllUserTransactions = async (req, res) => {
   try {
-    if (!req.user?.ABH_ID) {
+    if (!req.user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const user = await User.findOne({ ABH_ID: req.user.ABH_ID }).lean();
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    // User flow: return only the logged-in user's transactions.
+    if (req.user.ABH_ID) {
+      const user = await User.findOne({ ABH_ID: req.user.ABH_ID }).lean();
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const eventsPending =
+        user.eventsPending instanceof Map
+          ? Object.fromEntries(user.eventsPending)
+          : user.eventsPending || {};
+
+      const eventsPaid =
+        user.eventsPaid instanceof Map
+          ? Object.fromEntries(user.eventsPaid)
+          : user.eventsPaid || {};
+
+      return res.status(200).json({
+        statuscode: 200,
+        status: true,
+        message: "Fetched user transactions",
+        data: { eventsPending, eventsPaid },
+        eventsPending,
+        eventsPaid,
+        users: [],
+      });
     }
 
-    // IMPORTANT: Map -> plain object for frontend
-    const eventsPending =
-      user.eventsPending instanceof Map
-        ? Object.fromEntries(user.eventsPending)
-        : (user.eventsPending || {});
+    // Admin flow: return transactions for all users.
+    const admin = await Admin_model.findOne({
+      phoneNumber: req.user.phoneNumber,
+    }).lean();
 
-    const eventsPaid =
-      user.eventsPaid instanceof Map
-        ? Object.fromEntries(user.eventsPaid)
-        : (user.eventsPaid || {});
+    if (!admin) {
+      return res.status(403).json({ message: "Forbidden: Admin access required" });
+    }
+
+    const users = await User.find(
+      {},
+      "ABH_ID fullName email phoneNumber eventsPending eventsPaid",
+    ).lean();
+
+    const transactions = users.map((user) => ({
+      ABH_ID: user.ABH_ID,
+      fullName: user.fullName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      eventsPending:
+        user.eventsPending instanceof Map
+          ? Object.fromEntries(user.eventsPending)
+          : user.eventsPending || {},
+      eventsPaid:
+        user.eventsPaid instanceof Map
+          ? Object.fromEntries(user.eventsPaid)
+          : user.eventsPaid || {},
+    }));
 
     return res.status(200).json({
-      message: "Fetched user transactions",
-      data: { eventsPending, eventsPaid },
+      statuscode: 200,
+      status: true,
+      message: "Fetched all user transactions",
+      data: { users: transactions },
+      users: transactions,
     });
   } catch (error) {
     console.error("getAllUserTransactions error:", error);

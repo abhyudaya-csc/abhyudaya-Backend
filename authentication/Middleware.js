@@ -14,20 +14,22 @@ const checkUser = (req, res, next) => {
 
 // Middleware to check if user is an admin
 const checkAdmin = async (req, res, next) => {
-  console.log(req.user);
-  if(!req.user){
+  if (!req.user) {
     return res
-    .status(403)
-    .json(new ApiError(403, "Forbidden: Admin access!"));
+      .status(401)
+      .json(new ApiError(401, "Unauthorized: Admin not logged in"));
   }
-  console.log(req.user);
-  const existAdmin = await Admin_model.find({phoneNumber: req.user.phoneNumber});
+
+  const existAdmin = await Admin_model.findOne({
+    phoneNumber: req.user.phoneNumber,
+  });
 
   if (!existAdmin) {
     return res
       .status(403)
       .json(new ApiError(403, "Forbidden: Admin access required"));
   }
+
   next();
 };
 
