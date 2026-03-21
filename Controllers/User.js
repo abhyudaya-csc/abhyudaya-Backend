@@ -7,6 +7,8 @@ const { generateUser } = require("./username.js");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../authentication/UserAuth.js");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 const toFrontendUser = (userDoc) => {
   const user = userDoc?.toObject ? userDoc.toObject() : userDoc;
@@ -33,6 +35,24 @@ const getAuthCookieOptions = () => {
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
   };
+};
+
+const RESET_TOKEN_TTL_MINUTES = Number(process.env.RESET_PASSWORD_TTL_MINUTES || 20);
+
+const createMailTransporter = () =>
+  nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || "false") === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+const isStrongPassword = (password) => {
+  if (typeof password !== "string") return false;
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
 };
 
 // [ABH_ID, fullName, email, phoneNumber, dob, password, institution]
@@ -388,6 +408,106 @@ const updateCurrentUser = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  const genericResponse = {
+    message: "If this email exists, reset instructions were sent.",
+  };
+
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    user.resetPasswordTokenHash = tokenHash;
+    user.resetPasswordExpiresAt = new Date(
+      Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000,
+    );
+    await user.save();
+
+    const frontendBaseUrl =
+      process.env.FRONTEND_URL || process.env.CLIENT_URL || process.env.APPLICATION_URL;
+
+    if (frontendBaseUrl) {
+      const resetLink = `${frontendBaseUrl.replace(/\/$/, "")}/reset-password?token=${rawToken}`;
+      const transporter = createMailTransporter();
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: "Reset your password",
+        html: `<p>You requested a password reset.</p><p><a href=\"${resetLink}\">Reset Password</a></p><p>This link expires in ${RESET_TOKEN_TTL_MINUTES} minutes.</p>`,
+      });
+    }
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error("forgotPassword error:", error);
+    return res.status(200).json(genericResponse);
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const token = String(req.body?.token || "").trim();
+    const newPassword = String(req.body?.newPassword || "");
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "token and newPassword are required" });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and include uppercase, lowercase, number, and special character",
+      });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordTokenHash: tokenHash,
+      resetPasswordExpiresAt: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordTokenHash = null;
+    user.resetPasswordExpiresAt = null;
+    await user.save();
+
+    const cookieOptions = getAuthCookieOptions();
+    res.clearCookie("user", {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      path: cookieOptions.path,
+    });
+    res.clearCookie("token", {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      path: cookieOptions.path,
+    });
+
+    return res.status(200).json({ message: "Password reset successful." });
+  } catch (error) {
+    console.error("resetPassword error:", error);
+    return res.status(500).json({ message: "Failed to reset password" });
+  }
+};
+
 const logoutUser = (req, res) => {
   const cookieOptions = getAuthCookieOptions();
 
@@ -418,6 +538,8 @@ module.exports = {
   deleteUser,
   updateUser,
   updateCurrentUser,
+  forgotPassword,
+  resetPassword,
   getCurrentUser,
   logoutUser
   

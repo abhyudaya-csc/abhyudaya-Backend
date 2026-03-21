@@ -1,9 +1,12 @@
 const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
 const {
   deleteUser,
   registerUser,
   updateUser,
   updateCurrentUser,
+  forgotPassword,
+  resetPassword,
   getUsers,
   Login,
   getCurrentUser,
@@ -14,9 +17,21 @@ const { eventRegister, getAllUserTransactions } = require("../Controllers/EventH
 
 const userRouter = Router();
 
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many forgot password requests. Please try again later." },
+});
+
 userRouter.post("/", registerUser);
 userRouter.post("/login", Login);
 userRouter.post("/logout", logoutUser);
+userRouter.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
+userRouter.post("/forgotPassword", forgotPasswordLimiter, forgotPassword);
+userRouter.post("/reset-password", resetPassword);
+userRouter.post("/resetPassword", resetPassword);
 
 userRouter.get("/all", getUsers);
 userRouter.delete("/", checkAdmin, deleteUser);
