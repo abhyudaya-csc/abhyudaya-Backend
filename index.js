@@ -10,6 +10,8 @@ const eventRouter = require("./Routers/Events");
 const userRouter = require("./Routers/User");
 const VerificationRouter = require("./Routers/Verification");
 const adminRouter = require("./Routers/Admin");
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 

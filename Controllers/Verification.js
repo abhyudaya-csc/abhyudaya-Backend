@@ -1,21 +1,32 @@
+const dns = require("dns");
 const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const VerificationOtp = require("../Models/VerificationOtp");
 const { User } = require("../Models/User");
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 const OTP_TTL_MINUTES = Number(process.env.OTP_TTL_MINUTES || 10);
 const OTP_RESEND_COOLDOWN_SECONDS = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
 
+const ipv4Lookup = (hostname, options, callback) => {
+  return dns.lookup(hostname, { family: 4, all: false }, callback);
+};
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
+  port: Number(process.env.SMTP_PORT || 465),
+  secure: String(process.env.SMTP_SECURE).toLowerCase() === "true",
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    pass: String(process.env.SMTP_PASS || "").trim(),
   },
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
 });
 
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
@@ -50,8 +61,8 @@ const sendSignupOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    await resend.emails.send({
+      from: process.env.RESEND_FROM || "noreply@abhyudaya.site",
       to: email,
       subject: "Abhyudaya Signup OTP",
       html: `<p>Your OTP is <b>${otp}</b>. It is valid for ${OTP_TTL_MINUTES} minutes.</p>`,
