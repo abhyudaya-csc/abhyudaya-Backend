@@ -8,6 +8,24 @@ const bcrypt = require("bcryptjs");
 const { generateToken } = require("../authentication/UserAuth.js");
 const jwt = require("jsonwebtoken");
 
+const getCookieOptions = (req, includeMaxAge = true) => {
+  const isSecureRequest =
+    req.secure || req.headers["x-forwarded-proto"] === "https";
+
+  const options = {
+    httpOnly: true,
+    secure: isSecureRequest,
+    sameSite: isSecureRequest ? "none" : "lax",
+    path: "/",
+  };
+
+  if (includeMaxAge) {
+    options.maxAge = 7 * 24 * 60 * 60 * 1000;
+  }
+
+  return options;
+};
+
 // [ABH_ID, fullName, email, phoneNumber, dob, password, institution]
 const registerUser = async (req, res) => {
   try {
@@ -128,14 +146,7 @@ const Login = async (req, res) => {
 
     const token = generateToken(user);
 
-    const isProd = process.env.NODE_ENV === "production";
-
-    res.cookie("user", token, {
-      httpOnly: true,
-      secure: isProd,                 // true on Render/HTTPS
-      sameSite: isProd ? "none" : "lax", // none required for cross-site
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie("user", token, getCookieOptions(req));
 
     return res.status(200).json(new ApiResponse(200, user, "Login successful"));
   } catch (error) {
@@ -288,9 +299,7 @@ const getCurrentUser = async (req, res) => {
 
 const logoutUser = (req, res) => {
   res.clearCookie("user", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+    ...getCookieOptions(req, false),
     path: "/",
   });
 

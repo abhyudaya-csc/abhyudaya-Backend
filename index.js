@@ -16,10 +16,12 @@ dns.setDefaultResultOrder("ipv4first");
 const app = express();
 
 const allowedOrigins = [
+  process.env.TEST,
   "http://localhost:5173",
   "https://abhyudaya.vercel.app",
   "https://abhyudaya-git-vmt-test-branch-abhyudaya-cscs-projects.vercel.app",
   "https://www.abhyudaya.site",
+  
 ];
 
 const corsOptions = {
