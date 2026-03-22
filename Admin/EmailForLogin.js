@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
-const dns = require("dns");
 const dotenv = require("dotenv");
+const { Resend } = require("resend");
 const { Admin_model } = require("./Admin_Model");
 const { generateToken } = require("../authentication/UserAuth");
 const ApiResponse = require("../utils/ApiResponse");
@@ -14,23 +14,30 @@ const generateOTP = () => {
 // const otp = generateOTP();
 let otps = {};
 
-const ipv4Lookup = (hostname, options, callback) => {
-  return dns.lookup(hostname, { family: 4, all: false }, callback);
-};
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
-const transporter = nodemailer.createTransport({
-  host:"smtp.gmail.com",
-  port: 465,
-  secure:  "true",
-  auth: {
-    user: process.env.USERMAIL,
-    pass: process.env.USERPASS
-  },
-  lookup: ipv4Lookup,
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 20000,
-});
+const createTransporter = async () => {
+  const smtpHost = process.env.SMTP_HOST || "smtp.resend.com";
+  const smtpPort = Number(process.env.SMTP_PORT || 465);
+  const smtpSecure = String(process.env.SMTP_SECURE || "true").toLowerCase() === "true";
+  const smtpUser = process.env.SMTP_FROM;
+  const smtpPass = String(process.env.SMTP_PASS).trim();
+
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass,
+    },
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
+  });
+};
 
 //..............................Send Email.....................................
 const Send = async (req, res) => {
@@ -41,9 +48,17 @@ const Send = async (req, res) => {
 
   otps[phoneNumber] = { otp, expirationTime };
 
-  console.log(process.env.USERMAIL);
-  const mailUser = process.env.USERMAIL;
-  const mailFrom = process.env.USERMAIL;
+  const mailUser =
+    process.env.SMTP_FROM;
+  const mailFrom =
+    process.env.RESEND_FROM;
+
+  if (!mailUser || !mailFrom) {
+    return res.status(500).json({
+      message: "Admin OTP mail configuration missing (mailUser/mailFrom)",
+    });
+  }
+
   const mailOptions = {
     from: mailFrom,
     to: mailUser,
@@ -74,9 +89,18 @@ const Send = async (req, res) => {
   };
 
   try {
-  
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent: ", info.response);
+    if (resend) {
+      await resend.emails.send({
+        from: mailFrom,
+        to: mailUser,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+      });
+      return res.status(200).send("OTP sent successfully.");
+    }
+
+    const transporter = await createTransporter();
+    await transporter.sendMail(mailOptions);
     res.status(200).send("OTP sent successfully.");
   } catch (error) {
     console.error("Admin OTP send failed:", error);
