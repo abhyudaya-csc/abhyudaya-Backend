@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const dns = require("dns");
 const dotenv = require("dotenv");
 const { Admin_model } = require("./Admin_Model");
 const { generateToken } = require("../authentication/UserAuth");
@@ -13,14 +14,22 @@ const generateOTP = () => {
 // const otp = generateOTP();
 let otps = {};
 
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  host: "smtp.gmail.com",
+const ipv4Lookup = (hostname, options, callback) => {
+  return dns.lookup(hostname, { family: 4, all: false }, callback);
+};
 
+const transporter = nodemailer.createTransport({
+  host:"smtp.gmail.com",
+  port: 465,
+  secure:  "true",
   auth: {
     user: process.env.USERMAIL,
-    pass: process.env.USERPASS,
+    pass: process.env.USERPASS
   },
+  lookup: ipv4Lookup,
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
 });
 
 //..............................Send Email.....................................
@@ -33,9 +42,11 @@ const Send = async (req, res) => {
   otps[phoneNumber] = { otp, expirationTime };
 
   console.log(process.env.USERMAIL);
+  const mailUser = process.env.USERMAIL;
+  const mailFrom = process.env.USERMAIL;
   const mailOptions = {
-    from: process.env.USERMAIL,
-    to: process.env.USERMAIL,
+    from: mailFrom,
+    to: mailUser,
     subject: "OTP Verification Email",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; text-align: center;">
@@ -68,8 +79,11 @@ const Send = async (req, res) => {
     console.log("Email sent: ", info.response);
     res.status(200).send("OTP sent successfully.");
   } catch (error) {
-
-    res.status(400).json({ message: "Error : " + error });
+    console.error("Admin OTP send failed:", error);
+    res.status(502).json({
+      message: "Failed to send OTP email",
+      error: error.message,
+    });
   }
 };
 
