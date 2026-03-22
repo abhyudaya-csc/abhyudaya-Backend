@@ -24,19 +24,6 @@ const toFrontendUser = (userDoc) => {
   };
 };
 
-const getAuthCookieOptions = () => {
-  const isProductionLike =
-    process.env.NODE_ENV === "production" || process.env.RENDER === "true";
-
-  return {
-    httpOnly: true,
-    secure: isProductionLike,
-    sameSite: isProductionLike ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/",
-  };
-};
-
 const RESET_TOKEN_TTL_MINUTES = Number(process.env.RESET_PASSWORD_TTL_MINUTES || 20);
 
 const createMailTransporter = () =>
@@ -56,8 +43,11 @@ const isStrongPassword = (password) => {
 };
 
 const getCookieOptions = (req, includeMaxAge = true) => {
-  const isSecureRequest =
-    req.secure || req.headers["x-forwarded-proto"] === "https";
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const isSecureRequest = req.secure || forwardedProto === "https";
 
   const options = {
     httpOnly: true,
@@ -194,7 +184,7 @@ const Login = async (req, res) => {
 
     const token = generateToken(user);
 
-    const cookieOptions = getAuthCookieOptions();
+    const cookieOptions = getCookieOptions(req);
 
     // Set both keys for compatibility with frontend/client variants.
     res.cookie("user", token, cookieOptions);
@@ -506,7 +496,7 @@ const resetPassword = async (req, res) => {
     user.resetPasswordExpiresAt = null;
     await user.save();
 
-    const cookieOptions = getAuthCookieOptions();
+    const cookieOptions = getCookieOptions(req, false);
     res.clearCookie("user", {
       httpOnly: cookieOptions.httpOnly,
       secure: cookieOptions.secure,
@@ -528,7 +518,7 @@ const resetPassword = async (req, res) => {
 };
 
 const logoutUser = (req, res) => {
-  const cookieOptions = getAuthCookieOptions();
+  const cookieOptions = getCookieOptions(req, false);
 
   res.clearCookie("user", {
     httpOnly: cookieOptions.httpOnly,
