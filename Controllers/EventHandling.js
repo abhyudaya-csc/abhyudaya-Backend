@@ -82,7 +82,12 @@ const eventRegister = async (req, res) => {
 
 const movePendingToPaid = async (req, res) => {
   try {
-    const { trxnId, ABH_ID } = req.body;
+    const trxnId = String(
+      req.body?.trxnId ?? req.body?.transactionId ?? req.body?.txnId ?? "",
+    ).trim();
+    const ABH_ID = String(
+      req.body?.ABH_ID ?? req.body?.abhId ?? req.body?.abh_id ?? "",
+    ).trim();
 
     if (!trxnId) {
       return res
@@ -90,11 +95,17 @@ const movePendingToPaid = async (req, res) => {
         .json(new ApiError(400, "Transaction ID is required"));
     }
 
+    if (!ABH_ID) {
+      return res.status(400).json(new ApiError(400, "ABH_ID is required"));
+    }
+
     // ✅ Fetch the user's pending events for the given transaction ID
     const user = await User.findOne({ ABH_ID });
 
     if (!user) {
-      return res.status(404).json(new ApiError(404, "User not found"));
+      return res
+        .status(404)
+        .json(new ApiError(404, `User not found for ABH_ID: ${ABH_ID}`));
     }
 
     // ✅ Retrieve the events from Map using `.get()`
@@ -103,7 +114,12 @@ const movePendingToPaid = async (req, res) => {
     if (!eventsToMove || eventsToMove.length === 0) {
       return res
         .status(404)
-        .json(new ApiError(404, "No events found for this transaction"));
+        .json(
+          new ApiError(
+            404,
+            `No pending events found for transaction: ${trxnId}`,
+          ),
+        );
     }
 
     // // ✅ Move events from `eventsPending` to `eventsPaid`
@@ -132,12 +148,21 @@ const movePendingToPaid = async (req, res) => {
 
 const removePendingTransaction = async (req, res) => {
   try {
-    const { trxnId, ABH_ID } = req.body;
+    const trxnId = String(
+      req.body?.trxnId ?? req.body?.transactionId ?? req.body?.txnId ?? "",
+    ).trim();
+    const ABH_ID = String(
+      req.body?.ABH_ID ?? req.body?.abhId ?? req.body?.abh_id ?? "",
+    ).trim();
 
     if (!trxnId) {
       return res
         .status(400)
         .json(new ApiError(400, "Transaction ID is required"));
+    }
+
+    if (!ABH_ID) {
+      return res.status(400).json(new ApiError(400, "ABH_ID is required"));
     }
 
     // ✅ Use `findOneAndUpdate` to remove transaction from `eventsPending`
