@@ -7,6 +7,53 @@ const { generateUser } = require("./username.js");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../authentication/UserAuth.js");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
+const toFrontendUser = (userDoc) => {
+  const user = userDoc?.toObject ? userDoc.toObject() : userDoc;
+  if (!user) return null;
+
+  return {
+    fullName: user.fullName,
+    email: user.email,
+    phoneNumber: user.phoneNumber,
+    institution: user.institution,
+    ABH_ID: user.ABH_ID,
+    paymentStatus: user.paymentStatus,
+  };
+};
+
+const getAuthCookieOptions = () => {
+  const isProductionLike =
+    process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+
+  return {
+    httpOnly: true,
+    secure: isProductionLike,
+    sameSite: isProductionLike ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
+  };
+};
+
+const RESET_TOKEN_TTL_MINUTES = Number(process.env.RESET_PASSWORD_TTL_MINUTES || 20);
+
+const createMailTransporter = () =>
+  nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || "false") === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+const isStrongPassword = (password) => {
+  if (typeof password !== "string") return false;
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
+};
 
 const getCookieOptions = (req, includeMaxAge = true) => {
   const isSecureRequest =
@@ -106,9 +153,10 @@ const registerUser = async (req, res) => {
       );
     }
 
-    return res
-      .status(201)
-      .json(new ApiResponse(201, user, "User registered successfully"));
+    return res.status(201).json({
+      user: toFrontendUser(user),
+      message: "User registered successfully",
+    });
   } catch (error) {
     console.log(error);
     return res
@@ -146,9 +194,23 @@ const Login = async (req, res) => {
 
     const token = generateToken(user);
 
+<<<<<<< HEAD
     res.cookie("user", token, getCookieOptions(req));
 
     return res.status(200).json(new ApiResponse(200, user, "Login successful"));
+=======
+    const cookieOptions = getAuthCookieOptions();
+
+    // Set both keys for compatibility with frontend/client variants.
+    res.cookie("user", token, cookieOptions);
+    res.cookie("token", token, cookieOptions);
+
+    return res.status(200).json({
+      user: toFrontendUser(user),
+      token,
+      message: "Login successful",
+    });
+>>>>>>> 698410a13e03aeec148266f869e0db14c0b0950a
   } catch (error) {
     console.log(error);
 
@@ -286,8 +348,16 @@ const getCurrentUser = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const user = await User.findOne({
+      $or: [{ email: req.user.email }, { ABH_ID: req.user.ABH_ID }],
+    }).select("fullName email phoneNumber institution ABH_ID paymentStatus");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     res.status(200).json({
-      user: req.user,
+      user: toFrontendUser(user),
     });
 
   } catch (error) {
@@ -297,10 +367,192 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+const updateCurrentUser = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const allowedFields = ["fullName", "phoneNumber", "institution"];
+    const incomingFields = Object.keys(req.body || {});
+
+    if (incomingFields.length === 0) {
+      return res.status(400).json({ message: "No fields provided for update" });
+    }
+
+    const disallowed = incomingFields.filter((field) => !allowedFields.includes(field));
+    if (disallowed.length > 0) {
+      return res.status(400).json({ message: "Only fullName, phoneNumber and institution can be updated" });
+    }
+
+    const updateData = {};
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "fullName")) {
+      const fullName = String(req.body.fullName || "").trim();
+      if (!fullName) {
+        return res.status(400).json({ message: "fullName is required" });
+      }
+      updateData.fullName = fullName;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "institution")) {
+      const institution = String(req.body.institution || "").trim();
+      if (!institution) {
+        return res.status(400).json({ message: "institution is required" });
+      }
+      updateData.institution = institution;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "phoneNumber")) {
+      const phoneString = String(req.body.phoneNumber || "").trim();
+      if (!/^\d{10}$/.test(phoneString)) {
+        return res.status(400).json({ message: "phoneNumber must be 10 digits" });
+      }
+      updateData.phoneNumber = Number(phoneString);
+    }
+
+    const user = await User.findOneAndUpdate(
+      { $or: [{ email: req.user.email }, { ABH_ID: req.user.ABH_ID }] },
+      { $set: updateData },
+      {
+        new: true,
+        runValidators: true,
+      },
+    ).select("fullName email phoneNumber institution ABH_ID paymentStatus");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user: toFrontendUser(user) });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "Phone number already in use" });
+    }
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+const forgotPassword = async (req, res) => {
+  const genericResponse = {
+    message: "If this email exists, reset instructions were sent.",
+  };
+
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    user.resetPasswordTokenHash = tokenHash;
+    user.resetPasswordExpiresAt = new Date(
+      Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000,
+    );
+    await user.save();
+
+    const frontendBaseUrl =
+      process.env.FRONTEND_URL || process.env.CLIENT_URL || process.env.APPLICATION_URL;
+
+    if (frontendBaseUrl) {
+      const resetLink = `${frontendBaseUrl.replace(/\/$/, "")}/reset-password?token=${rawToken}`;
+      const transporter = createMailTransporter();
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: "Reset your password",
+        html: `<p>You requested a password reset.</p><p><a href=\"${resetLink}\">Reset Password</a></p><p>This link expires in ${RESET_TOKEN_TTL_MINUTES} minutes.</p>`,
+      });
+    }
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error("forgotPassword error:", error);
+    return res.status(200).json(genericResponse);
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const token = String(req.body?.token || "").trim();
+    const newPassword = String(req.body?.newPassword || "");
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "token and newPassword are required" });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and include uppercase, lowercase, number, and special character",
+      });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordTokenHash: tokenHash,
+      resetPasswordExpiresAt: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordTokenHash = null;
+    user.resetPasswordExpiresAt = null;
+    await user.save();
+
+    const cookieOptions = getAuthCookieOptions();
+    res.clearCookie("user", {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      path: cookieOptions.path,
+    });
+    res.clearCookie("token", {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      path: cookieOptions.path,
+    });
+
+    return res.status(200).json({ message: "Password reset successful." });
+  } catch (error) {
+    console.error("resetPassword error:", error);
+    return res.status(500).json({ message: "Failed to reset password" });
+  }
+};
+
 const logoutUser = (req, res) => {
+  const cookieOptions = getAuthCookieOptions();
+
   res.clearCookie("user", {
+<<<<<<< HEAD
     ...getCookieOptions(req, false),
     path: "/",
+=======
+    httpOnly: cookieOptions.httpOnly,
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+    path: cookieOptions.path,
+  });
+
+  res.clearCookie("token", {
+    httpOnly: cookieOptions.httpOnly,
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+    path: cookieOptions.path,
+>>>>>>> 698410a13e03aeec148266f869e0db14c0b0950a
   });
 
   res.status(200).json({
@@ -315,6 +567,9 @@ module.exports = {
   getUsers,
   deleteUser,
   updateUser,
+  updateCurrentUser,
+  forgotPassword,
+  resetPassword,
   getCurrentUser,
   logoutUser
   

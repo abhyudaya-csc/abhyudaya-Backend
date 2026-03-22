@@ -7,7 +7,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   try {
     // Extract token from cookies or Authorization header
     const verifyUser =
-      req.cookies?.username || req.header("Authorization")?.replace("Bearer ", "");
+      req.cookies?.user || req.header("Authorization")?.replace("Bearer ", "");
 
     if (!verifyUser) {
       throw new ApiError(401, "Unauthorized request");
