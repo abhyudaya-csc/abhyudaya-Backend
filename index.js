@@ -21,6 +21,7 @@ const allowedOrigins = [
   "https://abhyudaya-git-vmt-test-branch-abhyudaya-cscs-projects.vercel.app",
   "https://abhyudaya-git-abhishek-abhyudaya-cscs-projects.vercel.app/",
   "https://www.abhyudaya.site",
+  "https://abh26-admin-git-main-abhyudaya-cscs-projects.vercel.app/"
   
 ];
 
