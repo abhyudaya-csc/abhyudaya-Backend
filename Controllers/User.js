@@ -194,11 +194,6 @@ const Login = async (req, res) => {
 
     const token = generateToken(user);
 
-<<<<<<< HEAD
-    res.cookie("user", token, getCookieOptions(req));
-
-    return res.status(200).json(new ApiResponse(200, user, "Login successful"));
-=======
     const cookieOptions = getAuthCookieOptions();
 
     // Set both keys for compatibility with frontend/client variants.
@@ -210,7 +205,6 @@ const Login = async (req, res) => {
       token,
       message: "Login successful",
     });
->>>>>>> 698410a13e03aeec148266f869e0db14c0b0950a
   } catch (error) {
     console.log(error);
 
@@ -537,10 +531,6 @@ const logoutUser = (req, res) => {
   const cookieOptions = getAuthCookieOptions();
 
   res.clearCookie("user", {
-<<<<<<< HEAD
-    ...getCookieOptions(req, false),
-    path: "/",
-=======
     httpOnly: cookieOptions.httpOnly,
     secure: cookieOptions.secure,
     sameSite: cookieOptions.sameSite,
@@ -552,7 +542,6 @@ const logoutUser = (req, res) => {
     secure: cookieOptions.secure,
     sameSite: cookieOptions.sameSite,
     path: cookieOptions.path,
->>>>>>> 698410a13e03aeec148266f869e0db14c0b0950a
   });
 
   res.status(200).json({

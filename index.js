@@ -24,17 +24,6 @@ const allowedOrigins = [
   
 ];
 
-const envAllowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.CLIENT_URL,
-  process.env.APPLICATION_URL,
-  ...(process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim())
-    : []),
-].filter(Boolean);
-
-const allowedOrigins = [...new Set([...staticAllowedOrigins, ...envAllowedOrigins])];
-
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);

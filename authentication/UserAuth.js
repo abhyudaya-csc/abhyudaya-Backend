@@ -8,14 +8,6 @@ const getJwtSecret = () =>
   process.env.JWT_SECRET ||
   process.env.jwt_secret;
 
-<<<<<<< HEAD
-const getTokenFromRequest = (req) => {
-  const cookieToken = req.cookies?.user;
-  if (cookieToken) return cookieToken;
-
-  const authHeader = req.headers?.authorization || req.headers?.Authorization;
-  if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-=======
 const getRequestToken = (req) => {
   const cookieToken = req.cookies?.user || req.cookies?.token;
   if (cookieToken) return cookieToken;
@@ -23,7 +15,6 @@ const getRequestToken = (req) => {
   const authHeader = req.headers?.authorization || "";
   const isBearer = authHeader.toLowerCase().startsWith("bearer ");
   if (isBearer) {
->>>>>>> 698410a13e03aeec148266f869e0db14c0b0950a
     return authHeader.slice(7).trim();
   }
 
@@ -33,11 +24,7 @@ const getRequestToken = (req) => {
 // Middleware for attaching user from token
 const attachUserWithTokenVerification = async (req, res, next) => {
   try {
-<<<<<<< HEAD
-    const token = getTokenFromRequest(req);
-=======
     const token = getRequestToken(req);
->>>>>>> 698410a13e03aeec148266f869e0db14c0b0950a
     const jwtSecret = getJwtSecret();
     
     if (!token) return next(); // No token, proceed without modification
@@ -51,17 +38,6 @@ const attachUserWithTokenVerification = async (req, res, next) => {
     }
   } catch (error) {
     req.user = null;
-<<<<<<< HEAD
-
-    if (error.name === "TokenExpiredError") {
-      // Do not block public routes like /users/login if an old cookie expired.
-      res.clearCookie("user", {
-        httpOnly: true,
-        path: "/",
-      });
-    }
-=======
->>>>>>> 698410a13e03aeec148266f869e0db14c0b0950a
   }
 
   next();
